@@ -27,10 +27,15 @@ export class Player extends TransformNode {
   private _grounded: boolean;
   private _lastGroundPos: Vector3 = Vector3.Zero();
   private _jumpCount: number = 1;
+  private _canDash: boolean = true;
+  private _dashPressed: boolean = false;
+  public dashTime: number = 0;
 
   private static readonly PLAYER_SPEED: number = 0.45;
   private static readonly JUMP_FORCE: number = 0.8;
   private static readonly GRAVITY: number = -2.8;
+  private static readonly DASH_FACTOR: number = 2.5;
+  private static readonly DASH_TIME: number = 10;
   private static readonly ORIGINAL_TILT: Vector3 = new Vector3(
     0.5934119456780721,
     0,
@@ -50,6 +55,9 @@ export class Player extends TransformNode {
     this.mesh = assets.mesh;
     this.mesh.parent = this;
 
+    this.scene.getLightByName('sparkLight').parent =
+      this.scene.getTransformNodeByName('Empty');
+
     shadowGenerator.addShadowCaster(assets.mesh);
 
     this._input = input;
@@ -63,6 +71,7 @@ export class Player extends TransformNode {
     const yTilt = new TransformNode('yTilt');
     yTilt.rotation = Player.ORIGINAL_TILT;
     this._yTilt = yTilt;
+    yTilt.parent = this._camRoot;
 
     this.camera = new UniversalCamera(
       'cam',
@@ -77,7 +86,7 @@ export class Player extends TransformNode {
   }
 
   private _updateCamera(): void {
-    let centerPlayer = this.mesh.position.y + 2;
+    const centerPlayer = this.mesh.position.y + 2;
     this._camRoot.position = Vector3.Lerp(
       this._camRoot.position,
       new Vector3(this.mesh.position.x, centerPlayer, this.mesh.position.z),
@@ -106,12 +115,35 @@ export class Player extends TransformNode {
     this._h = this._input.horizontal;
     this._v = this._input.vertical;
 
+    if (
+      this._input.dashing &&
+      !this._dashPressed &&
+      this._canDash &&
+      !this._grounded
+    ) {
+      this._canDash = false;
+      this._dashPressed = true;
+    }
+
+    let dashFactor = 1;
+    if (this._dashPressed) {
+      if (this.dashTime > Player.DASH_TIME) {
+        this.dashTime = 0;
+        this._dashPressed = false;
+      } else dashFactor = Player.DASH_FACTOR;
+      this.dashTime++;
+    }
+
     const correctedVertical = this._camRoot.forward.scaleInPlace(this._v);
     const correctedHorizontal = this._camRoot.right.scaleInPlace(this._h);
 
     const move = correctedHorizontal.addInPlace(correctedVertical).normalize();
 
-    this._moveDirection = new Vector3(move.x, 0, move.z);
+    this._moveDirection = new Vector3(
+      move.x * dashFactor,
+      0,
+      move.z * dashFactor
+    );
 
     this._inputAmt = Math.min(Math.abs(this._h) + Math.abs(this._v), 1);
 
@@ -163,65 +195,62 @@ export class Player extends TransformNode {
 
   private _updateGroundDetection(): void {
     this._deltaTime = this.scene.getEngine().getDeltaTime() / 1000;
-    if (!this._isGrounded) {
-      this._gravity = this._gravity.addInPlace(
-        Vector3.Up().scale(this._deltaTime * Player.GRAVITY)
-      );
-      this._grounded = false;
+
+    if (this._input.jumping && this._jumpCount) {
+      this._gravity.y = Player.JUMP_FORCE;
+      this._jumpCount--;
+    } else if (!this._isGrounded()) {
+      if (this._checkSlope() && this._gravity.y <= 0) {
+        this._gravity.y = 0;
+        this._jumpCount = 1;
+        this._grounded = true;
+      } else {
+        this._gravity = this._gravity.addInPlace(
+          Vector3.Up().scale(this._deltaTime * Player.GRAVITY)
+        );
+        this._grounded = false;
+      }
     } else {
       this._gravity.y = 0;
       this._grounded = true;
       this._lastGroundPos.copyFrom(this.mesh.position);
 
       this._jumpCount = 1;
+
+      this._canDash = true;
+      this.dashTime = 0;
+      this._dashPressed = false;
     }
+
     if (this._gravity.y < -Player.JUMP_FORCE)
       this._gravity.y = -Player.JUMP_FORCE;
-    this.mesh.moveWithCollisions(this._moveDirection.addInPlace(this._gravity));
 
-    if (this._input.jumping && this._jumpCount) {
-      this._gravity.y = Player.JUMP_FORCE;
-      this._jumpCount--;
-    }
+    this.mesh.moveWithCollisions(this._moveDirection.addInPlace(this._gravity));
   }
 
-  private _checkSlope() {
+  private _checkSlope(): boolean {
     const predicate = function (mesh) {
       return mesh.isPickable && mesh.isEnabled();
     };
 
-    const picks = [];
-
-    let rayCast = new Vector3(
-      this.mesh.position.x,
-      this.mesh.position.y + 0.5,
-      this.mesh.position.z + 0.25
-    );
-    let ray = new Ray(rayCast, Vector3.Up().scale(-1), 1.5);
-    let pick = this.scene.pickWithRay(ray, predicate);
-
-    let raycast2 = new Vector3(
-      this.mesh.position.x,
-      this.mesh.position.y + 0.5,
-      this.mesh.position.z - 0.25
-    );
-    let ray2 = new Ray(raycast2, Vector3.Up().scale(-1), 1.5);
-    let pick2 = this.scene.pickWithRay(ray2, predicate);
-
-    let raycast3 = new Vector3(
-      this.mesh.position.x + 0.25,
-      this.mesh.position.y + 0.5,
-      this.mesh.position.z
-    );
-    let ray3 = new Ray(raycast3, Vector3.Up().scale(-1), 1.5);
-    let pick3 = this.scene.pickWithRay(ray3, predicate);
-
-    let raycast4 = new Vector3(
-      this.mesh.position.x - 0.25,
-      this.mesh.position.y + 0.5,
-      this.mesh.position.z
-    );
-    let ray4 = new Ray(raycast4, Vector3.Up().scale(-1), 1.5);
-    let pick4 = this.scene.pickWithRay(ray4, predicate);
+    return !![
+      { x: 0, z: 0.25 },
+      { x: 0, z: -0.25 },
+      { x: 0.25, z: 0 },
+      { x: -0.25, z: 0 },
+    ].find((position) => {
+      const rayCast = new Vector3(
+        this.mesh.position.x + position.x,
+        this.mesh.position.y + 0.5,
+        this.mesh.position.z + position.z
+      );
+      const ray = new Ray(rayCast, Vector3.Up().scale(-1), 1.5);
+      const pick = this.scene.pickWithRay(ray, predicate);
+      return (
+        pick.hit &&
+        !pick.getNormal().equals(Vector3.Up()) &&
+        pick.pickedMesh.name.includes('stair')
+      );
+    });
   }
 }

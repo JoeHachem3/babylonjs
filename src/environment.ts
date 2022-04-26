@@ -1,4 +1,10 @@
-import { MeshBuilder, Scene, Vector3 } from '@babylonjs/core';
+import {
+  AbstractMesh,
+  MeshBuilder,
+  Scene,
+  SceneLoader,
+  Vector3,
+} from '@babylonjs/core';
 
 export class Environment {
   private _scene: Scene;
@@ -7,8 +13,29 @@ export class Environment {
     this._scene = scene;
   }
 
-  async load() {
-    const ground = MeshBuilder.CreateBox('ground', { size: 24 }, this._scene);
-    ground.scaling = new Vector3(1, 0.02, 1);
+  async load(): Promise<void> {
+    const assets = await this._loadAsset();
+
+    assets.allMeshes.forEach((mesh) => {
+      mesh.receiveShadows = true;
+      mesh.checkCollisions = true;
+    });
+  }
+
+  private async _loadAsset(): Promise<{
+    env: AbstractMesh;
+    allMeshes: AbstractMesh[];
+  }> {
+    const result = await SceneLoader.ImportMeshAsync(
+      null,
+      './models/',
+      'envSetting.glb',
+      this._scene
+    );
+
+    let env = result.meshes[0];
+    let allMeshes = env.getChildMeshes();
+
+    return { env, allMeshes };
   }
 }

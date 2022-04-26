@@ -1,3 +1,4 @@
+import '@babylonjs/loaders/glTF';
 import {
   ArcRotateCamera,
   Color3,
@@ -11,8 +12,8 @@ import {
   PointLight,
   Quaternion,
   Scene,
+  SceneLoader,
   ShadowGenerator,
-  StandardMaterial,
   Vector3,
 } from '@babylonjs/core';
 import { AdvancedDynamicTexture, Button, Control } from '@babylonjs/gui';
@@ -171,6 +172,7 @@ class App {
     let finishedLoading = false;
     this._setUpGame().then(() => {
       finishedLoading = true;
+      this._goToGame();
     });
   }
 
@@ -204,7 +206,9 @@ class App {
     await this._initializeGameAsync(scene);
 
     await scene.whenReadyAsync();
-    scene.getMeshByName('outer').position = new Vector3(0, 3, 0);
+    scene.getMeshByName('outer').position = scene
+      .getTransformNodeByName('startPosition')
+      .getAbsolutePosition();
 
     this._scene.dispose();
     this._state = State.GAME;
@@ -268,41 +272,19 @@ class App {
 
       outer.rotationQuaternion = new Quaternion(0, 1, 0, 0);
 
-      const box = MeshBuilder.CreateBox(
-        'Small1',
-        {
-          width: 0.5,
-          depth: 0.5,
-          height: 0.25,
-          faceColors: [
-            new Color4(0, 0, 0, 1),
-            new Color4(0, 0, 0, 1),
-            new Color4(0, 0, 0, 1),
-            new Color4(0, 0, 0, 1),
-            new Color4(0, 0, 0, 1),
-            new Color4(0, 0, 0, 1),
-          ],
-        },
+      return SceneLoader.ImportMeshAsync(
+        null,
+        './models/',
+        'player.glb',
         scene
-      );
-      box.position.y = 1.5;
-      box.position.z = 1;
+      ).then((result) => {
+        const body = result.meshes[0];
+        body.parent = outer;
+        body.isPickable = false;
+        body.getChildMeshes().forEach((mesh) => (mesh.isPickable = false));
 
-      const body = MeshBuilder.CreateCylinder(
-        'body',
-        { height: 3, diameter: 2, tessellation: 0, subdivisions: 0 },
-        scene
-      );
-      const bodyMtl = new StandardMaterial('red', scene);
-      bodyMtl.diffuseColor = new Color3(0.8, 0.5, 0.5);
-      body.material = bodyMtl;
-      body.isPickable = false;
-      body.bakeTransformIntoVertices(Matrix.Translation(0, 1.5, 0));
-
-      box.parent = body;
-      body.parent = outer;
-
-      return { mesh: outer };
+        return { mesh: outer };
+      });
     }
 
     return loadCharacter().then((assets) => {
