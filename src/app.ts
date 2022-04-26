@@ -1,14 +1,24 @@
 import {
   ArcRotateCamera,
+  Color3,
   Color4,
   Engine,
   FreeCamera,
   HemisphericLight,
+  Matrix,
+  Mesh,
   MeshBuilder,
+  PointLight,
+  Quaternion,
   Scene,
+  ShadowGenerator,
+  StandardMaterial,
   Vector3,
 } from '@babylonjs/core';
 import { AdvancedDynamicTexture, Button, Control } from '@babylonjs/gui';
+import { Player } from './characterController';
+import { Environment } from './environment';
+import { PlayerInput } from './inputController';
 
 enum State {
   START = 0,
@@ -23,7 +33,12 @@ class App {
   private _cutScene: Scene;
   private _canvas: HTMLCanvasElement;
   private _engine: Engine;
+  private _environment: Environment;
   private _state: State = State.START;
+  private _player: Player;
+  private _input: PlayerInput;
+
+  public assets;
 
   constructor() {
     this._createCanvas();
@@ -52,15 +67,6 @@ class App {
       { diameter: 1 },
       this._scene
     );
-
-    window.addEventListener('keydown', (e) => {
-      if (e.shiftKey && e.ctrlKey && e.altKey && e.key === 'I') {
-        if (this._scene.debugLayer.isVisible()) this._scene.debugLayer.hide();
-        else this._scene.debugLayer.show();
-      }
-    });
-
-    this._goToStart();
 
     this._main();
   }
@@ -177,16 +183,6 @@ class App {
       0.20392156862745098
     );
 
-    const camera = new ArcRotateCamera(
-      'camera',
-      Math.PI / 2,
-      Math.PI / 2,
-      2,
-      Vector3.Zero(),
-      scene
-    );
-    camera.setTarget(Vector3.Zero());
-
     const playerUI = AdvancedDynamicTexture.CreateFullscreenUI('UI');
     scene.detachControl();
 
@@ -203,8 +199,12 @@ class App {
       this._goToLose();
       scene.detachControl();
     });
-    // !to remove
-    const light1 = new HemisphericLight('light1', new Vector3(1, 1, 0), scene);
+
+    this._input = new PlayerInput(scene);
+    await this._initializeGameAsync(scene);
+
+    await scene.whenReadyAsync();
+    scene.getMeshByName('outer').position = new Vector3(0, 3, 0);
 
     this._scene.dispose();
     this._state = State.GAME;
@@ -242,10 +242,93 @@ class App {
   }
 
   private async _setUpGame() {
-    let scene = new Scene(this._engine);
+    const scene = new Scene(this._engine);
     this._gameScene = scene;
 
-    //...load assets
+    this._environment = new Environment(scene);
+    await this._environment.load();
+    await this._loadCharacterAssets(scene);
+  }
+
+  private async _loadCharacterAssets(scene: Scene) {
+    async function loadCharacter() {
+      const outer = MeshBuilder.CreateBox(
+        'outer',
+        { width: 2, depth: 1, height: 3 },
+        scene
+      );
+      outer.isVisible = false;
+      outer.isPickable = false;
+      outer.checkCollisions = true;
+
+      outer.bakeTransformIntoVertices(Matrix.Translation(0, 1.5, 0));
+
+      outer.ellipsoid = new Vector3(1, 1.5, 1);
+      outer.ellipsoidOffset = new Vector3(0, 1.5, 0);
+
+      outer.rotationQuaternion = new Quaternion(0, 1, 0, 0);
+
+      const box = MeshBuilder.CreateBox(
+        'Small1',
+        {
+          width: 0.5,
+          depth: 0.5,
+          height: 0.25,
+          faceColors: [
+            new Color4(0, 0, 0, 1),
+            new Color4(0, 0, 0, 1),
+            new Color4(0, 0, 0, 1),
+            new Color4(0, 0, 0, 1),
+            new Color4(0, 0, 0, 1),
+            new Color4(0, 0, 0, 1),
+          ],
+        },
+        scene
+      );
+      box.position.y = 1.5;
+      box.position.z = 1;
+
+      const body = MeshBuilder.CreateCylinder(
+        'body',
+        { height: 3, diameter: 2, tessellation: 0, subdivisions: 0 },
+        scene
+      );
+      const bodyMtl = new StandardMaterial('red', scene);
+      bodyMtl.diffuseColor = new Color3(0.8, 0.5, 0.5);
+      body.material = bodyMtl;
+      body.isPickable = false;
+      body.bakeTransformIntoVertices(Matrix.Translation(0, 1.5, 0));
+
+      box.parent = body;
+      body.parent = outer;
+
+      return { mesh: outer };
+    }
+
+    return loadCharacter().then((assets) => {
+      this.assets = assets;
+    });
+  }
+
+  private async _initializeGameAsync(scene: Scene) {
+    const light0 = new HemisphericLight(
+      'hemiLight',
+      new Vector3(0, 1, 0),
+      scene
+    );
+    const light = new PointLight('sparkLight', Vector3.Zero(), scene);
+    light.diffuse = new Color3(
+      0.08627450980392157,
+      0.10980392156862745,
+      0.15294117647058825
+    );
+    light.intensity = 35;
+    light.radius = 1;
+    const shadowGenerator = new ShadowGenerator(1024, light);
+    shadowGenerator.darkness = 0.4;
+
+    this._player = new Player(this.assets, scene, shadowGenerator, this._input);
+    const camera = this._player.activatePlayerCamera();
   }
 }
 
