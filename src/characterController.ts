@@ -1,5 +1,6 @@
 import {
   ActionManager,
+  AnimationGroup,
   ArcRotateCamera,
   ExecuteCodeAction,
   Mesh,
@@ -36,6 +37,15 @@ export class Player extends TransformNode {
   public sparkReset: boolean = false;
   public sparkLit: boolean = true;
   public win: boolean = false;
+  private _dash: AnimationGroup;
+  private _idle: AnimationGroup;
+  private _jump: AnimationGroup;
+  private _land: AnimationGroup;
+  private _run: AnimationGroup;
+  private _currentAnim: AnimationGroup = null;
+  private _prevAnim: AnimationGroup;
+  private _isFalling: boolean = false;
+  private _jumped: boolean = false;
 
   private static readonly PLAYER_SPEED: number = 0.45;
   private static readonly JUMP_FORCE: number = 0.8;
@@ -54,7 +64,7 @@ export class Player extends TransformNode {
   );
 
   constructor(
-    assets: { mesh: Mesh },
+    assets: { mesh: Mesh; animationGroups: AnimationGroup[] },
     scene: Scene,
     shadowGenerator: ShadowGenerator,
     input?: PlayerInput
@@ -65,8 +75,14 @@ export class Player extends TransformNode {
 
     this.mesh = assets.mesh;
     this.mesh.parent = this;
+    this._setUpMeshActions();
 
-    this._setMeshActions();
+    this._dash = assets.animationGroups[0];
+    this._idle = assets.animationGroups[1];
+    this._jump = assets.animationGroups[2];
+    this._land = assets.animationGroups[3];
+    this._run = assets.animationGroups[4];
+    this._setUpAnimations();
 
     this.scene.getLightByName('sparkLight').parent =
       this.scene.getTransformNodeByName('Empty');
@@ -177,6 +193,7 @@ export class Player extends TransformNode {
   private _beforeRenderUpdate(): void {
     this._updateFromControls();
     this._updateGroundDetection();
+    this._animatePlayer();
   }
 
   private _updateFromControls(): void {
@@ -194,6 +211,8 @@ export class Player extends TransformNode {
     ) {
       this._canDash = false;
       this._dashPressed = true;
+
+      this._currentAnim = this._dash;
     }
 
     let dashFactor = 1;
@@ -270,6 +289,9 @@ export class Player extends TransformNode {
     if (this._input.jumping && this._jumpCount) {
       this._gravity.y = Player.JUMP_FORCE;
       this._jumpCount--;
+
+      this._jumped = true;
+      this._isFalling = false;
     } else if (!this._isGrounded()) {
       if (this._checkSlope() && this._gravity.y <= 0) {
         this._gravity.y = 0;
@@ -291,10 +313,15 @@ export class Player extends TransformNode {
       this._canDash = true;
       this.dashTime = 0;
       this._dashPressed = false;
+
+      this._jumped = false;
+      this._isFalling = false;
     }
 
     if (this._gravity.y < -Player.JUMP_FORCE)
       this._gravity.y = -Player.JUMP_FORCE;
+
+    if (this._gravity.y < 0 && this._jumped) this._isFalling = true;
 
     this.mesh.moveWithCollisions(this._moveDirection.addInPlace(this._gravity));
   }
@@ -325,7 +352,7 @@ export class Player extends TransformNode {
     });
   }
 
-  private _setMeshActions(): void {
+  private _setUpMeshActions(): void {
     this.mesh.actionManager = new ActionManager(this.scene);
 
     this.mesh.actionManager.registerAction(
@@ -361,5 +388,36 @@ export class Player extends TransformNode {
         }
       )
     );
+  }
+
+  private _setUpAnimations(): void {
+    this.scene.stopAllAnimations();
+    this._run.loopAnimation = true;
+    this._idle.loopAnimation = true;
+    this._currentAnim = this._idle;
+    this._prevAnim = this._land;
+  }
+
+  private _animatePlayer(): void {
+    if (
+      !this._dashPressed &&
+      !this._isFalling &&
+      !this._jumped &&
+      (this._input.inputMap['ArrowUp'] ||
+        this._input.inputMap['ArrowDown'] ||
+        this._input.inputMap['ArrowLeft'] ||
+        this._input.inputMap['ArrowRight'])
+    )
+      this._currentAnim = this._run;
+    else if (this._jumped && !this._isFalling && !this._dashPressed)
+      this._currentAnim = this._jump;
+    else if (!this._isFalling && this._grounded) this._currentAnim = this._idle;
+    else if (this._isFalling) this._currentAnim = this._land;
+
+    if (this._currentAnim != null && this._prevAnim !== this._currentAnim) {
+      this._prevAnim.stop();
+      this._currentAnim.play(this._currentAnim.loopAnimation);
+      this._prevAnim = this._currentAnim;
+    }
   }
 }

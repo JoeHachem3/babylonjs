@@ -15,13 +15,15 @@ export class Lantern {
   public mesh: Mesh;
   private _lightSphere: Mesh;
   public isLit: boolean = false;
+  private _spinAnim: AnimationGroup;
+  private _light: PointLight;
 
   constructor(
     lightMtl: PBRMetallicRoughnessMaterial,
     mesh: Mesh,
     scene: Scene,
     position: Vector3,
-    animationGroups?: AnimationGroup
+    animationGroups: AnimationGroup
   ) {
     this._scene = scene;
     this._lightMtl = lightMtl;
@@ -39,14 +41,17 @@ export class Lantern {
 
     this._loadLantern(mesh, position);
 
+    this._spinAnim = animationGroups;
+
     const light = new PointLight(
       'lantern light',
       this.mesh.getAbsolutePosition(),
       this._scene
     );
-    light.intensity = 30;
+    light.intensity = 0;
     light.radius = 2;
     light.diffuse = new Color3(0.45, 0.56, 0.8);
+    this._light = light;
     this._findNearestMeshes(light);
   }
 
@@ -59,7 +64,10 @@ export class Lantern {
 
   public setEmissiveTexture(): void {
     this.isLit = true;
+
+    this._spinAnim.play();
     this.mesh.material = this._lightMtl;
+    this._light.intensity = 30;
   }
 
   private _findNearestMeshes(light: PointLight): void {

@@ -7,7 +7,6 @@ import {
   FreeCamera,
   HemisphericLight,
   Matrix,
-  Mesh,
   MeshBuilder,
   PointLight,
   Quaternion,
@@ -16,10 +15,11 @@ import {
   ShadowGenerator,
   Vector3,
 } from '@babylonjs/core';
-import { AdvancedDynamicTexture, Button, Control } from '@babylonjs/gui';
+import { AdvancedDynamicTexture, Button, Control, Image } from '@babylonjs/gui';
 import { Player } from './characterController';
 import { Environment } from './environment';
 import { PlayerInput } from './inputController';
+import { Hud } from './ui';
 
 enum State {
   START = 0,
@@ -38,6 +38,7 @@ class App {
   private _state: State = State.START;
   private _player: Player;
   private _input: PlayerInput;
+  private _ui: Hud;
 
   public assets;
 
@@ -96,6 +97,14 @@ class App {
     await this._goToStart();
 
     this._engine.runRenderLoop(() => {
+      if (
+        this._state === State.GAME &&
+        this._ui.time >= 240 &&
+        !this._player.win
+      ) {
+        this._goToLose();
+        this._ui.stopTimer();
+      }
       this._scene.render();
     });
 
@@ -145,34 +154,269 @@ class App {
     const camera = new FreeCamera('camera1', Vector3.Zero(), this._cutScene);
     camera.setTarget(Vector3.Zero());
 
-    const cutScene = AdvancedDynamicTexture.CreateFullscreenUI('cutScene');
+    const cutScene = AdvancedDynamicTexture.CreateFullscreenUI('cutscene');
+    let transition = 0; //increment based on dialogue
+    let canplay = false;
+    let finished_anim = false;
+    let anims_loaded = 0;
 
-    const nextBtn = Button.CreateSimpleButton('next', 'NEXT');
-    nextBtn.color = 'white';
-    nextBtn.thickness = 0;
-    nextBtn.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
-    nextBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
-    nextBtn.width = '64px';
-    nextBtn.height = '64px';
-    nextBtn.top = '-3%';
-    nextBtn.left = '-12%';
-    cutScene.addControl(nextBtn);
+    //Animations
+    const beginning_anim = new Image(
+      'sparkLife',
+      './sprites/beginning_anim.png'
+    );
+    beginning_anim.stretch = Image.STRETCH_UNIFORM;
+    beginning_anim.cellId = 0;
+    beginning_anim.cellHeight = 480;
+    beginning_anim.cellWidth = 480;
+    beginning_anim.sourceWidth = 480;
+    beginning_anim.sourceHeight = 480;
+    cutScene.addControl(beginning_anim);
+    beginning_anim.onImageLoadedObservable.add(() => {
+      anims_loaded++;
+    });
+    const working_anim = new Image('sparkLife', './sprites/working_anim.png');
+    working_anim.stretch = Image.STRETCH_UNIFORM;
+    working_anim.cellId = 0;
+    working_anim.cellHeight = 480;
+    working_anim.cellWidth = 480;
+    working_anim.sourceWidth = 480;
+    working_anim.sourceHeight = 480;
+    working_anim.isVisible = false;
+    cutScene.addControl(working_anim);
+    working_anim.onImageLoadedObservable.add(() => {
+      anims_loaded++;
+    });
+    const dropoff_anim = new Image('sparkLife', './sprites/dropoff_anim.png');
+    dropoff_anim.stretch = Image.STRETCH_UNIFORM;
+    dropoff_anim.cellId = 0;
+    dropoff_anim.cellHeight = 480;
+    dropoff_anim.cellWidth = 480;
+    dropoff_anim.sourceWidth = 480;
+    dropoff_anim.sourceHeight = 480;
+    dropoff_anim.isVisible = false;
+    cutScene.addControl(dropoff_anim);
+    dropoff_anim.onImageLoadedObservable.add(() => {
+      anims_loaded++;
+    });
+    const leaving_anim = new Image('sparkLife', './sprites/leaving_anim.png');
+    leaving_anim.stretch = Image.STRETCH_UNIFORM;
+    leaving_anim.cellId = 0;
+    leaving_anim.cellHeight = 480;
+    leaving_anim.cellWidth = 480;
+    leaving_anim.sourceWidth = 480;
+    leaving_anim.sourceHeight = 480;
+    leaving_anim.isVisible = false;
+    cutScene.addControl(leaving_anim);
+    leaving_anim.onImageLoadedObservable.add(() => {
+      anims_loaded++;
+    });
+    const watermelon_anim = new Image(
+      'sparkLife',
+      './sprites/watermelon_anim.png'
+    );
+    watermelon_anim.stretch = Image.STRETCH_UNIFORM;
+    watermelon_anim.cellId = 0;
+    watermelon_anim.cellHeight = 480;
+    watermelon_anim.cellWidth = 480;
+    watermelon_anim.sourceWidth = 480;
+    watermelon_anim.sourceHeight = 480;
+    watermelon_anim.isVisible = false;
+    cutScene.addControl(watermelon_anim);
+    watermelon_anim.onImageLoadedObservable.add(() => {
+      anims_loaded++;
+    });
+    const reading_anim = new Image('sparkLife', './sprites/reading_anim.png');
+    reading_anim.stretch = Image.STRETCH_UNIFORM;
+    reading_anim.cellId = 0;
+    reading_anim.cellHeight = 480;
+    reading_anim.cellWidth = 480;
+    reading_anim.sourceWidth = 480;
+    reading_anim.sourceHeight = 480;
+    reading_anim.isVisible = false;
+    cutScene.addControl(reading_anim);
+    reading_anim.onImageLoadedObservable.add(() => {
+      anims_loaded++;
+    });
 
-    nextBtn.onPointerUpObservable.add(() => {
-      this._goToGame();
+    //Dialogue animations
+    const dialogueBg = new Image(
+      'sparkLife',
+      './sprites/bg_anim_text_dialogue.png'
+    );
+    dialogueBg.stretch = Image.STRETCH_UNIFORM;
+    dialogueBg.cellId = 0;
+    dialogueBg.cellHeight = 480;
+    dialogueBg.cellWidth = 480;
+    dialogueBg.sourceWidth = 480;
+    dialogueBg.sourceHeight = 480;
+    dialogueBg.horizontalAlignment = 0;
+    dialogueBg.verticalAlignment = 0;
+    dialogueBg.isVisible = false;
+    cutScene.addControl(dialogueBg);
+    dialogueBg.onImageLoadedObservable.add(() => {
+      anims_loaded++;
+    });
+
+    const dialogue = new Image('sparkLife', './sprites/text_dialogue.png');
+    dialogue.stretch = Image.STRETCH_UNIFORM;
+    dialogue.cellId = 0;
+    dialogue.cellHeight = 480;
+    dialogue.cellWidth = 480;
+    dialogue.sourceWidth = 480;
+    dialogue.sourceHeight = 480;
+    dialogue.horizontalAlignment = 0;
+    dialogue.verticalAlignment = 0;
+    dialogue.isVisible = false;
+    cutScene.addControl(dialogue);
+    dialogue.onImageLoadedObservable.add(() => {
+      anims_loaded++;
+    });
+
+    const dialogueTimer = setInterval(() => {
+      if (finished_anim && dialogueBg.cellId < 3) {
+        dialogueBg.cellId++;
+      } else {
+        dialogueBg.cellId = 0;
+      }
+    }, 250);
+
+    const skipBtn = Button.CreateSimpleButton('skip', 'SKIP');
+    skipBtn.fontFamily = 'Viga';
+    skipBtn.width = '45px';
+    skipBtn.left = '-14px';
+    skipBtn.height = '40px';
+    skipBtn.color = 'white';
+    skipBtn.top = '14px';
+    skipBtn.thickness = 0;
+    skipBtn.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+    skipBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    cutScene.addControl(skipBtn);
+
+    skipBtn.onPointerDownObservable.add(() => {
+      this._cutScene.detachControl();
+      clearInterval(animTimer);
+      clearInterval(anim2Timer);
+      clearInterval(dialogueTimer);
+      this._engine.displayLoadingUI();
+      canplay = true;
+    });
+
+    let animTimer: NodeJS.Timeout;
+    let anim2Timer: NodeJS.Timeout;
+    let anim = 1;
+    this._cutScene.onBeforeRenderObservable.add(() => {
+      if (anims_loaded == 8) {
+        this._engine.hideLoadingUI();
+        anims_loaded = 0;
+
+        animTimer = setInterval(() => {
+          switch (anim) {
+            case 1:
+              if (beginning_anim.cellId == 9) {
+                anim++;
+                beginning_anim.isVisible = false;
+                working_anim.isVisible = true;
+              } else {
+                beginning_anim.cellId++;
+              }
+              break;
+            case 2:
+              if (working_anim.cellId == 11) {
+                anim++;
+                working_anim.isVisible = false;
+                dropoff_anim.isVisible = true;
+              } else {
+                working_anim.cellId++;
+              }
+              break;
+            case 3:
+              if (dropoff_anim.cellId == 11) {
+                anim++;
+                dropoff_anim.isVisible = false;
+                leaving_anim.isVisible = true;
+              } else {
+                dropoff_anim.cellId++;
+              }
+              break;
+            case 4:
+              if (leaving_anim.cellId == 9) {
+                anim++;
+                leaving_anim.isVisible = false;
+                watermelon_anim.isVisible = true;
+              } else {
+                leaving_anim.cellId++;
+              }
+              break;
+            default:
+              break;
+          }
+        }, 250);
+
+        anim2Timer = setInterval(() => {
+          switch (anim) {
+            case 5:
+              if (watermelon_anim.cellId == 8) {
+                anim++;
+                watermelon_anim.isVisible = false;
+                reading_anim.isVisible = true;
+              } else {
+                watermelon_anim.cellId++;
+              }
+              break;
+            case 6:
+              if (reading_anim.cellId == 11) {
+                reading_anim.isVisible = false;
+                finished_anim = true;
+                dialogueBg.isVisible = true;
+                dialogue.isVisible = true;
+                next.isVisible = true;
+              } else {
+                reading_anim.cellId++;
+              }
+              break;
+          }
+        }, 750);
+      }
+
+      if (finishedLoading && canplay) {
+        canplay = false;
+        this._goToGame();
+      }
+    });
+
+    const next = Button.CreateImageOnlyButton('next', './sprites/arrowBtn.png');
+    next.rotation = Math.PI / 2;
+    next.thickness = 0;
+    next.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+    next.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    next.width = '64px';
+    next.height = '64px';
+    next.top = '-3%';
+    next.left = '-12%';
+    next.isVisible = false;
+    cutScene.addControl(next);
+
+    next.onPointerUpObservable.add(() => {
+      if (transition == 8) {
+        this._cutScene.detachControl();
+        this._engine.displayLoadingUI();
+        transition = 0;
+        canplay = true;
+      } else if (transition < 8) {
+        transition++;
+        dialogue.cellId++;
+      }
     });
 
     await this._cutScene.whenReadyAsync();
     this._scene.dispose();
     this._state = State.CUTSCENE;
     this._scene = this._cutScene;
-    this._engine.hideLoadingUI();
-    this._scene.attachControl();
 
     let finishedLoading = false;
     this._setUpGame().then(() => {
       finishedLoading = true;
-      this._goToGame();
     });
   }
 
@@ -185,30 +429,20 @@ class App {
       0.20392156862745098
     );
 
-    const playerUI = AdvancedDynamicTexture.CreateFullscreenUI('UI');
+    this._ui = new Hud(scene);
+
     scene.detachControl();
 
-    const loseBtn = Button.CreateSimpleButton('lose', 'LOSE');
-    loseBtn.width = 0.2;
-    loseBtn.height = '40px';
-    loseBtn.color = 'white';
-    loseBtn.top = '-14px';
-    loseBtn.thickness = 0;
-    loseBtn.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
-    playerUI.addControl(loseBtn);
-
-    loseBtn.onPointerDownObservable.add(() => {
-      this._goToLose();
-      scene.detachControl();
-    });
-
-    this._input = new PlayerInput(scene);
+    this._input = new PlayerInput(scene, this._ui);
     await this._initializeGameAsync(scene);
 
     await scene.whenReadyAsync();
     scene.getMeshByName('outer').position = scene
       .getTransformNodeByName('startPosition')
       .getAbsolutePosition();
+
+    this._ui.startTimer();
+    this._ui.startSparklerTimer();
 
     this._scene.dispose();
     this._state = State.GAME;
@@ -283,7 +517,7 @@ class App {
         body.isPickable = false;
         body.getChildMeshes().forEach((mesh) => (mesh.isPickable = false));
 
-        return { mesh: outer };
+        return { mesh: outer, animationGroups: result.animationGroups };
       });
     }
 
@@ -313,6 +547,20 @@ class App {
     const camera = this._player.activatePlayerCamera();
 
     this._environment.checkLanterns(this._player);
+
+    scene.onBeforeRenderObservable.add(() => {
+      if (this._player.sparkReset) {
+        this._ui.startSparklerTimer();
+        this._player.sparkReset = false;
+      } else if (this._ui.stopSpark && this._player.sparkLit) {
+        this._ui.stopSparklerTimer();
+        this._player.sparkLit = false;
+      }
+
+      if (!this._ui.gamePaused) {
+        this._ui.updateHud();
+      }
+    });
   }
 }
 

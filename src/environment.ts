@@ -1,6 +1,7 @@
 import {
   AbstractMesh,
   ActionManager,
+  AnimationGroup,
   Color3,
   ExecuteCodeAction,
   Mesh,
@@ -79,6 +80,13 @@ export class Environment {
       const lanternInstance = assets.lantern.clone('lantern' + i);
       lanternInstance.isVisible = true;
       lanternInstance.setParent(lanternHolder);
+
+      const animGroupClone = new AnimationGroup('lanternAnimGroup ' + i);
+      animGroupClone.addTargetedAnimation(
+        assets.animationGroups.targetedAnimations[0].animation,
+        lanternInstance
+      );
+
       const newLantern = new Lantern(
         this._lightMtl,
         lanternInstance,
@@ -86,18 +94,21 @@ export class Environment {
         assets.env
           .getChildTransformNodes(false)
           .find((mesh) => mesh.name === 'lantern ' + i)
-          .getAbsolutePosition()
+          .getAbsolutePosition(),
+        animGroupClone
       );
       this._lanternObjs.push(newLantern);
     }
 
     assets.lantern.dispose();
+    assets.animationGroups.dispose();
   }
 
   private async _loadAsset(): Promise<{
     env: AbstractMesh;
     allMeshes: AbstractMesh[];
     lantern: Mesh;
+    animationGroups: AnimationGroup;
   }> {
     const envResult = await SceneLoader.ImportMeshAsync(
       null,
@@ -119,11 +130,22 @@ export class Environment {
     lantern.parent = null;
     lanternResult.meshes[0].dispose();
 
-    return { env, allMeshes, lantern: lantern as Mesh };
+    const importedAnims = lanternResult.animationGroups;
+    const animation = importedAnims[0].targetedAnimations[0].animation;
+    importedAnims[0].dispose();
+    const animGroup = new AnimationGroup('lanternAnimGroup');
+    animGroup.addTargetedAnimation(animation, lanternResult.meshes[1]);
+
+    return {
+      env,
+      allMeshes,
+      lantern: lantern as Mesh,
+      animationGroups: animGroup,
+    };
   }
 
   public checkLanterns(player: Player): void {
-    if (this._lanternObjs[0].isLit) this._lanternObjs[0].setEmissiveTexture();
+    if (!this._lanternObjs[0].isLit) this._lanternObjs[0].setEmissiveTexture();
 
     this._lanternObjs.forEach((lantern) => {
       player.mesh.actionManager.registerAction(

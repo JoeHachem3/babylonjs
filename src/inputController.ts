@@ -4,6 +4,7 @@ import {
   Scalar,
   Scene,
 } from '@babylonjs/core';
+import { Hud } from './ui';
 
 export class PlayerInput {
   inputMap: { [key: string]: boolean };
@@ -13,9 +14,11 @@ export class PlayerInput {
   horizontalAxis: number = 0;
   dashing: boolean = false;
   jumping: boolean = false;
+  private _ui: Hud;
 
-  constructor(scene: Scene) {
+  constructor(scene: Scene, ui: Hud) {
     scene.actionManager = new ActionManager(scene);
+    this._ui = ui;
 
     this.inputMap = {};
     scene.actionManager.registerAction(
@@ -30,7 +33,12 @@ export class PlayerInput {
     );
 
     scene.onBeforeRenderObservable.add(() => {
-      this._updateFromKeyboard();
+      if (this._ui.gamePaused) {
+        this.vertical = 0;
+        this.verticalAxis = 0;
+        this.horizontal = 0;
+        this.horizontalAxis = 0;
+      } else this._updateFromKeyboard();
     });
   }
 
