@@ -442,7 +442,7 @@ class App {
       .getAbsolutePosition();
 
     this._ui.startTimer();
-    this._ui.startSparklerTimer();
+    this._ui.startSparklerTimer(this._player.sparkler);
 
     this._scene.dispose();
     this._state = State.GAME;
@@ -532,14 +532,24 @@ class App {
       new Vector3(0, 1, 0),
       scene
     );
-    const light = new PointLight('sparkLight', Vector3.Zero(), scene);
-    light.diffuse = new Color3(
-      0.08627450980392157,
-      0.10980392156862745,
-      0.15294117647058825
+    light0.diffuse = new Color3(0.1, 0.1, 0.1);
+
+    scene.ambientColor = new Color3(
+      0.34509803921568627,
+      0.5568627450980392,
+      0.8352941176470589
     );
+    scene.clearColor = new Color4(
+      0.01568627450980392,
+      0.01568627450980392,
+      0.20392156862745098
+    );
+
+    const light = new PointLight('sparkLight', Vector3.Zero(), scene);
+    light.diffuse = new Color3(1, 1, 1);
     light.intensity = 35;
     light.radius = 1;
+
     const shadowGenerator = new ShadowGenerator(1024, light);
     shadowGenerator.darkness = 0.4;
 
@@ -550,10 +560,10 @@ class App {
 
     scene.onBeforeRenderObservable.add(() => {
       if (this._player.sparkReset) {
-        this._ui.startSparklerTimer();
+        this._ui.startSparklerTimer(this._player.sparkler);
         this._player.sparkReset = false;
       } else if (this._ui.stopSpark && this._player.sparkLit) {
-        this._ui.stopSparklerTimer();
+        this._ui.stopSparklerTimer(this._player.sparkler);
         this._player.sparkLit = false;
       }
 

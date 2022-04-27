@@ -1,11 +1,14 @@
 import {
   AnimationGroup,
   Color3,
+  Color4,
   Mesh,
   MeshBuilder,
+  ParticleSystem,
   PBRMetallicRoughnessMaterial,
   PointLight,
   Scene,
+  Texture,
   Vector3,
 } from '@babylonjs/core';
 
@@ -17,6 +20,7 @@ export class Lantern {
   public isLit: boolean = false;
   private _spinAnim: AnimationGroup;
   private _light: PointLight;
+  private _stars: ParticleSystem;
 
   constructor(
     lightMtl: PBRMetallicRoughnessMaterial,
@@ -40,6 +44,8 @@ export class Lantern {
     this._lightSphere.isPickable = false;
 
     this._loadLantern(mesh, position);
+
+    this._loadStars();
 
     this._spinAnim = animationGroups;
 
@@ -65,6 +71,7 @@ export class Lantern {
   public setEmissiveTexture(): void {
     this.isLit = true;
 
+    this._stars.start();
     this._spinAnim.play();
     this.mesh.material = this._lightMtl;
     this._light.intensity = 30;
@@ -79,5 +86,37 @@ export class Lantern {
           light.includedOnlyMeshes.push(mesh);
       });
     this._lightSphere.dispose();
+  }
+
+  private _loadStars(): void {
+    const particleSystem = new ParticleSystem('stars', 1000, this._scene);
+
+    particleSystem.particleTexture = new Texture(
+      './textures/solidStar.png',
+      this._scene
+    );
+    particleSystem.emitter = new Vector3(
+      this.mesh.position.x,
+      this.mesh.position.y + 1.5,
+      this.mesh.position.z
+    );
+    particleSystem.createPointEmitter(
+      new Vector3(0.6, 1, 0),
+      new Vector3(0, 1, 0)
+    );
+    particleSystem.color1 = new Color4(1, 1, 1);
+    particleSystem.color2 = new Color4(1, 1, 1);
+    particleSystem.colorDead = new Color4(1, 1, 1, 1);
+    particleSystem.emitRate = 12;
+    particleSystem.minEmitPower = 14;
+    particleSystem.maxEmitPower = 14;
+    particleSystem.addStartSizeGradient(0, 2);
+    particleSystem.addStartSizeGradient(1, 0.8);
+    particleSystem.minAngularSpeed = 0;
+    particleSystem.maxAngularSpeed = 2;
+    particleSystem.addDragGradient(0, 0.7, 0.7);
+    particleSystem.targetStopDuration = 0.25;
+
+    this._stars = particleSystem;
   }
 }

@@ -12,12 +12,15 @@ import {
   TransformNode,
 } from '@babylonjs/core';
 import { Player } from './characterController';
+import { Firework } from './firework';
 import { Lantern } from './lantern';
 
 export class Environment {
   private _scene: Scene;
   private _lanternObjs: Lantern[] = [];
+  private _fireworkObjs: Firework[] = [];
   private _lightMtl: PBRMetallicRoughnessMaterial;
+  private _startFireworks: boolean = false;
 
   constructor(scene: Scene) {
     this._scene = scene;
@@ -135,6 +138,15 @@ export class Environment {
     importedAnims[0].dispose();
     const animGroup = new AnimationGroup('lanternAnimGroup');
     animGroup.addTargetedAnimation(animation, lanternResult.meshes[1]);
+
+    for (let i = 0; i < 20; i++) {
+      this._fireworkObjs.push(new Firework(this._scene, i));
+    }
+
+    this._scene.onBeforeRenderObservable.add(() => {
+      if (this._startFireworks)
+        this._fireworkObjs.forEach((firework) => firework.startFirework());
+    });
 
     return {
       env,

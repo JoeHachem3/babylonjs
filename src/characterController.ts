@@ -2,12 +2,18 @@ import {
   ActionManager,
   AnimationGroup,
   ArcRotateCamera,
+  Color3,
+  Color4,
   ExecuteCodeAction,
   Mesh,
+  MeshBuilder,
+  ParticleSystem,
   Quaternion,
   Ray,
   Scene,
   ShadowGenerator,
+  SphereParticleEmitter,
+  Texture,
   TransformNode,
   UniversalCamera,
   Vector3,
@@ -17,6 +23,7 @@ import { PlayerInput } from './inputController';
 export class Player extends TransformNode {
   public camera: UniversalCamera;
   public scene: Scene;
+  public sparkler: ParticleSystem;
   private _input: PlayerInput;
   public mesh: Mesh;
   private _camRoot: TransformNode;
@@ -75,6 +82,7 @@ export class Player extends TransformNode {
 
     this.mesh = assets.mesh;
     this.mesh.parent = this;
+
     this._setUpMeshActions();
 
     this._dash = assets.animationGroups[0];
@@ -82,11 +90,12 @@ export class Player extends TransformNode {
     this._jump = assets.animationGroups[2];
     this._land = assets.animationGroups[3];
     this._run = assets.animationGroups[4];
+
+    this._createSparkles();
     this._setUpAnimations();
 
     this.scene.getLightByName('sparkLight').parent =
       this.scene.getTransformNodeByName('Empty');
-
     shadowGenerator.addShadowCaster(assets.mesh);
 
     this._input = input;
@@ -419,5 +428,57 @@ export class Player extends TransformNode {
       this._currentAnim.play(this._currentAnim.loopAnimation);
       this._prevAnim = this._currentAnim;
     }
+  }
+
+  private _createSparkles(): void {
+    const sphere = MeshBuilder.CreateSphere(
+      'sparkles',
+      { segments: 4, diameter: 1 },
+      this.scene
+    );
+    sphere.position = new Vector3(0, 0, 0);
+    sphere.parent = this.scene.getTransformNodeByName('Empty');
+    sphere.isVisible = false;
+
+    let particleSystem = new ParticleSystem('sparkles', 1000, this.scene);
+    particleSystem.particleTexture = new Texture(
+      './textures/flwr.png',
+      this.scene
+    );
+    particleSystem.emitter = sphere;
+    particleSystem.particleEmitterType = new SphereParticleEmitter(0);
+
+    particleSystem.updateSpeed = 0.014;
+    particleSystem.minAngularSpeed = 0;
+    particleSystem.maxAngularSpeed = 360;
+    particleSystem.minEmitPower = 1;
+    particleSystem.maxEmitPower = 3;
+
+    particleSystem.minSize = 0.5;
+    particleSystem.maxSize = 2;
+    particleSystem.minScaleX = 0.5;
+    particleSystem.minScaleY = 0.5;
+    particleSystem.color1 = new Color4(0.8, 0.8549019607843137, 1, 1);
+    particleSystem.color2 = new Color4(
+      0.8509803921568627,
+      0.7647058823529411,
+      1,
+      1
+    );
+
+    particleSystem.addRampGradient(0, Color3.White());
+    particleSystem.addRampGradient(1, Color3.Black());
+    particleSystem.getRampGradients()[0].color =
+      Color3.FromHexString('#BBC1FF');
+    particleSystem.getRampGradients()[1].color =
+      Color3.FromHexString('#FFFFFF');
+    particleSystem.maxAngularSpeed = 0;
+    particleSystem.maxInitialRotation = 360;
+    particleSystem.minAngularSpeed = -10;
+    particleSystem.maxAngularSpeed = 10;
+
+    particleSystem.start();
+
+    this.sparkler = particleSystem;
   }
 }

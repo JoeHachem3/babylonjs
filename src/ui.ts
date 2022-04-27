@@ -1,4 +1,4 @@
-import { Effect, PostProcess, Scene } from '@babylonjs/core';
+import { Effect, ParticleSystem, PostProcess, Scene } from '@babylonjs/core';
 import {
   TextBlock,
   AdvancedDynamicTexture,
@@ -140,7 +140,7 @@ export class Hud {
     this._stopTimer = true;
   }
 
-  startSparklerTimer(): void {
+  startSparklerTimer(sparkler: ParticleSystem): void {
     this.stopSpark = false;
     this._sparklerLife.cellId = 0;
     this._spark.cellId = 0;
@@ -148,7 +148,10 @@ export class Hud {
     clearInterval(this._handle);
     clearInterval(this._sparkHandle);
 
-    this._scene.getLightByName('sparkLight').intensity = 35;
+    if (sparkler) {
+      sparkler.start();
+      this._scene.getLightByName('sparkLight').intensity = 35;
+    }
 
     this._handle = setInterval(() => {
       if (!this.gamePaused) {
@@ -176,9 +179,13 @@ export class Hud {
     }, 185);
   }
 
-  stopSparklerTimer(): void {
+  stopSparklerTimer(sparkler: ParticleSystem): void {
     this.stopSpark = true;
-    this._scene.getLightByName('sparkLight').intensity = 0;
+
+    if (sparkler) {
+      sparkler.stop();
+      this._scene.getLightByName('sparkLight').intensity = 0;
+    }
   }
 
   private _createPauseMenu(): void {
