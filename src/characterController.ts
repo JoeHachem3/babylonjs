@@ -1,4 +1,5 @@
 import {
+  ActionManager,
   ArcRotateCamera,
   Mesh,
   Quaternion,
@@ -30,6 +31,9 @@ export class Player extends TransformNode {
   private _canDash: boolean = true;
   private _dashPressed: boolean = false;
   public dashTime: number = 0;
+  public lanternsLit: number = 1;
+  public sparkReset: boolean = false;
+  public sparkLit: boolean = true;
 
   private static readonly PLAYER_SPEED: number = 0.45;
   private static readonly JUMP_FORCE: number = 0.8;
@@ -54,6 +58,7 @@ export class Player extends TransformNode {
 
     this.mesh = assets.mesh;
     this.mesh.parent = this;
+    this.mesh.actionManager = new ActionManager(this.scene);
 
     this.scene.getLightByName('sparkLight').parent =
       this.scene.getTransformNodeByName('Empty');
