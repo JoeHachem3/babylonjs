@@ -89,9 +89,9 @@ export class Environment {
           .getAbsolutePosition()
       );
       this._lanternObjs.push(newLantern);
-
-      assets.lantern.dispose();
     }
+
+    assets.lantern.dispose();
   }
 
   private async _loadAsset(): Promise<{

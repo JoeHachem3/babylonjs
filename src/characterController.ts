@@ -1,6 +1,7 @@
 import {
   ActionManager,
   ArcRotateCamera,
+  ExecuteCodeAction,
   Mesh,
   Quaternion,
   Ray,
@@ -34,6 +35,7 @@ export class Player extends TransformNode {
   public lanternsLit: number = 1;
   public sparkReset: boolean = false;
   public sparkLit: boolean = true;
+  public win: boolean = false;
 
   private static readonly PLAYER_SPEED: number = 0.45;
   private static readonly JUMP_FORCE: number = 0.8;
@@ -42,6 +44,11 @@ export class Player extends TransformNode {
   private static readonly DASH_TIME: number = 10;
   private static readonly ORIGINAL_TILT: Vector3 = new Vector3(
     0.5934119456780721,
+    0,
+    0
+  );
+  private static readonly DOWN_TILT: Vector3 = new Vector3(
+    0.8290313946973066,
     0,
     0
   );
@@ -58,7 +65,8 @@ export class Player extends TransformNode {
 
     this.mesh = assets.mesh;
     this.mesh.parent = this;
-    this.mesh.actionManager = new ActionManager(this.scene);
+
+    this._setMeshActions();
 
     this.scene.getLightByName('sparkLight').parent =
       this.scene.getTransformNodeByName('Empty');
@@ -91,6 +99,64 @@ export class Player extends TransformNode {
   }
 
   private _updateCamera(): void {
+    if (this.mesh.intersectsMesh(this.scene.getMeshByName('cornerTrigger'))) {
+      if (this._input.horizontalAxis > 0) {
+        this._camRoot.rotation = Vector3.Lerp(
+          this._camRoot.rotation,
+          new Vector3(
+            this._camRoot.rotation.x,
+            Math.PI / 2,
+            this._camRoot.rotation.z
+          ),
+          0.4
+        );
+      } else if (this._input.horizontalAxis < 0) {
+        this._camRoot.rotation = Vector3.Lerp(
+          this._camRoot.rotation,
+          new Vector3(
+            this._camRoot.rotation.x,
+            Math.PI,
+            this._camRoot.rotation.z
+          ),
+          0.4
+        );
+      }
+    }
+
+    if (this.mesh.intersectsMesh(this.scene.getMeshByName('festivalTrigger'))) {
+      if (this._input.verticalAxis > 0) {
+        this._yTilt.rotation = Vector3.Lerp(
+          this._yTilt.rotation,
+          Player.DOWN_TILT,
+          0.4
+        );
+      } else if (this._input.verticalAxis < 0) {
+        this._yTilt.rotation = Vector3.Lerp(
+          this._yTilt.rotation,
+          Player.ORIGINAL_TILT,
+          0.4
+        );
+      }
+    }
+
+    if (
+      this.mesh.intersectsMesh(this.scene.getMeshByName('destinationTrigger'))
+    ) {
+      if (this._input.verticalAxis > 0) {
+        this._yTilt.rotation = Vector3.Lerp(
+          this._yTilt.rotation,
+          Player.ORIGINAL_TILT,
+          0.4
+        );
+      } else if (this._input.verticalAxis < 0) {
+        this._yTilt.rotation = Vector3.Lerp(
+          this._yTilt.rotation,
+          Player.DOWN_TILT,
+          0.4
+        );
+      }
+    }
+
     const centerPlayer = this.mesh.position.y + 2;
     this._camRoot.position = Vector3.Lerp(
       this._camRoot.position,
@@ -257,5 +323,43 @@ export class Player extends TransformNode {
         pick.pickedMesh.name.includes('stair')
       );
     });
+  }
+
+  private _setMeshActions(): void {
+    this.mesh.actionManager = new ActionManager(this.scene);
+
+    this.mesh.actionManager.registerAction(
+      new ExecuteCodeAction(
+        {
+          trigger: ActionManager.OnIntersectionEnterTrigger,
+          parameter: this.scene.getMeshByName('destination'),
+        },
+        () => {
+          if (this.lanternsLit == 22) {
+            this.win = true;
+            //tilt camera to look at where the fireworks will be displayed
+            this._yTilt.rotation = new Vector3(
+              5.689773361501514,
+              0.23736477827122882,
+              0
+            );
+            this._yTilt.position = new Vector3(0, 6, 0);
+            this.camera.position.y = 17;
+          }
+        }
+      )
+    );
+
+    this.mesh.actionManager.registerAction(
+      new ExecuteCodeAction(
+        {
+          trigger: ActionManager.OnIntersectionEnterTrigger,
+          parameter: this.scene.getMeshByName('ground'),
+        },
+        () => {
+          this.mesh.position.copyFrom(this._lastGroundPos);
+        }
+      )
+    );
   }
 }
