@@ -1,21 +1,34 @@
 import '@babylonjs/loaders/glTF';
 import {
+  AnimationGroup,
   ArcRotateCamera,
   Color3,
   Color4,
+  Effect,
   Engine,
   FreeCamera,
   HemisphericLight,
   Matrix,
+  Mesh,
   MeshBuilder,
   PointLight,
+  PostProcess,
   Quaternion,
   Scene,
   SceneLoader,
   ShadowGenerator,
+  Sound,
   Vector3,
 } from '@babylonjs/core';
-import { AdvancedDynamicTexture, Button, Control, Image } from '@babylonjs/gui';
+import {
+  AdvancedDynamicTexture,
+  Button,
+  Control,
+  Image,
+  Rectangle,
+  TextBlock,
+  StackPanel,
+} from '@babylonjs/gui';
 import { Player } from './characterController';
 import { Environment } from './environment';
 import { PlayerInput } from './inputController';
@@ -39,8 +52,14 @@ class App {
   private _player: Player;
   private _input: PlayerInput;
   private _ui: Hud;
+  private _transition: boolean = false;
+  game: Sound;
+  end: Sound;
 
-  public assets;
+  public assets: {
+    mesh: Mesh;
+    animationGroups: AnimationGroup[];
+  };
 
   constructor() {
     this._createCanvas();
@@ -120,20 +139,92 @@ class App {
     const camera = new FreeCamera('camera1', new Vector3(0, 0, 0), scene);
     camera.setTarget(Vector3.Zero());
 
+    const start = new Sound(
+      'startSong',
+      './sounds/copycat(revised).mp3',
+      scene,
+      () => {},
+      { volume: 0.25, loop: true, autoplay: true }
+    );
+    const sfx = new Sound(
+      'selection',
+      './sounds/vgmenuselect.wav',
+      scene,
+      () => {}
+    );
+
     const guiMenu = AdvancedDynamicTexture.CreateFullscreenUI('ui');
     guiMenu.idealHeight = 720;
 
+    const imageRect = new Rectangle('titleContainer');
+    imageRect.width = 0.8;
+    imageRect.thickness = 0;
+    guiMenu.addControl(imageRect);
+
+    const startbg = new Image('startbg', 'sprites/start.jpeg');
+    imageRect.addControl(startbg);
+
+    const title = new TextBlock('title', "SUMMER'S FESTIVAL");
+    title.resizeToFit = true;
+    title.fontFamily = 'Ceviche One';
+    title.fontSize = '64px';
+    title.color = 'white';
+    title.resizeToFit = true;
+    title.top = '14px';
+    title.width = 0.8;
+    title.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+    imageRect.addControl(title);
+
     const startBtn = Button.CreateSimpleButton('start', 'PLAY');
+    startBtn.fontFamily = 'Viga';
     startBtn.width = 0.2;
-    startBtn.height = '14px';
+    startBtn.height = '40px';
     startBtn.color = 'white';
     startBtn.top = '-14px';
     startBtn.thickness = 0;
     startBtn.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
-    guiMenu.addControl(startBtn);
+    imageRect.addControl(startBtn);
+
+    Effect.RegisterShader(
+      'fade',
+      'precision highp float;' +
+        'varying vec2 vUV;' +
+        'uniform sampler2D textureSampler; ' +
+        'uniform float fadeLevel; ' +
+        'void main(void){' +
+        'vec4 baseColor = texture2D(textureSampler, vUV) * fadeLevel;' +
+        'baseColor.a = 1.0;' +
+        'gl_FragColor = baseColor;' +
+        '}'
+    );
+
+    let fadeLevel = 1.0;
+    this._transition = false;
+    scene.registerBeforeRender(() => {
+      if (this._transition) {
+        fadeLevel -= 0.05;
+        if (fadeLevel <= 0) {
+          this._goToCutScene();
+          this._transition = false;
+        }
+      }
+    });
 
     startBtn.onPointerDownObservable.add(() => {
-      this._goToCutScene();
+      const postProcess = new PostProcess(
+        'Fade',
+        'fade',
+        ['fadeLevel'],
+        null,
+        1.0,
+        camera
+      );
+      postProcess.onApply = (effect) => {
+        effect.setFloat('fadeLevel', fadeLevel);
+      };
+      this._transition = true;
+      sfx.play();
+
       scene.detachControl();
     });
 
@@ -449,6 +540,8 @@ class App {
     this._scene = scene;
     this._engine.hideLoadingUI();
     this._scene.attachControl();
+
+    this.game.play();
   }
 
   private async _goToLose() {
@@ -460,15 +553,99 @@ class App {
     const camera = new FreeCamera('camera1', Vector3.Zero(), scene);
     camera.setTarget(Vector3.Zero());
 
+    const start = new Sound(
+      'loseSong',
+      './sounds/Eye of the Storm.mp3',
+      scene,
+      function () {},
+      {
+        volume: 0.25,
+        loop: true,
+        autoplay: true,
+      }
+    );
+    const sfx = new Sound(
+      'selection',
+      './sounds/vgmenuselect.wav',
+      scene,
+      function () {}
+    );
+
     const guiMenu = AdvancedDynamicTexture.CreateFullscreenUI('UI');
-    const mainBtn = Button.CreateSimpleButton('mainMenu', 'MAIN MENU');
+    guiMenu.idealHeight = 720;
+
+    //background image
+    const image = new Image('lose', 'sprites/lose.jpeg');
+    image.autoScale = true;
+    guiMenu.addControl(image);
+
+    const panel = new StackPanel();
+    guiMenu.addControl(panel);
+
+    const text = new TextBlock();
+    text.fontSize = 24;
+    text.color = 'white';
+    text.height = '100px';
+    text.width = '100%';
+    panel.addControl(text);
+
+    text.textHorizontalAlignment = TextBlock.HORIZONTAL_ALIGNMENT_CENTER;
+    text.textVerticalAlignment = TextBlock.VERTICAL_ALIGNMENT_CENTER;
+    text.text = "There's no fireworks this year";
+    const dots = new TextBlock();
+    dots.color = 'white';
+    dots.fontSize = 24;
+    dots.height = '100px';
+    dots.width = '100%';
+    dots.text = '....';
+
+    const mainBtn = Button.CreateSimpleButton('mainmenu', 'MAIN MENU');
     mainBtn.width = 0.2;
     mainBtn.height = '40px';
     mainBtn.color = 'white';
-    guiMenu.addControl(mainBtn);
+    panel.addControl(mainBtn);
+
+    Effect.RegisterShader(
+      'fade',
+      'precision highp float;' +
+        'varying vec2 vUV;' +
+        'uniform sampler2D textureSampler; ' +
+        'uniform float fadeLevel; ' +
+        'void main(void){' +
+        'vec4 baseColor = texture2D(textureSampler, vUV) * fadeLevel;' +
+        'baseColor.a = 1.0;' +
+        'gl_FragColor = baseColor;' +
+        '}'
+    );
+
+    let fadeLevel = 1.0;
+    this._transition = false;
+    scene.registerBeforeRender(() => {
+      if (this._transition) {
+        fadeLevel -= 0.05;
+        if (fadeLevel <= 0) {
+          this._goToStart();
+          this._transition = false;
+        }
+      }
+    });
 
     mainBtn.onPointerUpObservable.add(() => {
-      this._goToStart();
+      const postProcess = new PostProcess(
+        'Fade',
+        'fade',
+        ['fadeLevel'],
+        null,
+        1.0,
+        camera
+      );
+      postProcess.onApply = (effect) => {
+        effect.setFloat('fadeLevel', fadeLevel);
+      };
+      this._transition = true;
+      sfx.play();
+
+      scene.detachControl();
     });
 
     await scene.whenReadyAsync();
@@ -482,6 +659,8 @@ class App {
   private async _setUpGame() {
     const scene = new Scene(this._engine);
     this._gameScene = scene;
+
+    this._loadSounds(scene);
 
     this._environment = new Environment(scene);
     await this._environment.load();
@@ -571,6 +750,29 @@ class App {
         this._ui.updateHud();
       }
     });
+  }
+
+  private _loadSounds(scene: Scene): void {
+    this.game = new Sound(
+      'gameSong',
+      './sounds/Christmassynths.wav',
+      scene,
+      function () {},
+      {
+        loop: true,
+        volume: 0.1,
+      }
+    );
+
+    this.end = new Sound(
+      'endSong',
+      './sounds/copycat(revised).mp3',
+      scene,
+      function () {},
+      {
+        volume: 0.25,
+      }
+    );
   }
 }
 

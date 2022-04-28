@@ -1,4 +1,10 @@
-import { Effect, ParticleSystem, PostProcess, Scene } from '@babylonjs/core';
+import {
+  Effect,
+  ParticleSystem,
+  PostProcess,
+  Scene,
+  Sound,
+} from '@babylonjs/core';
 import {
   TextBlock,
   AdvancedDynamicTexture,
@@ -30,6 +36,10 @@ export class Hud {
   private _controls: Rectangle;
   public fadeLevel: number;
   public transition: boolean = false;
+  private _pause: Sound;
+  private _sfx: Sound;
+  public quitSfx: Sound;
+  private _sparkWarningSfx: Sound;
 
   constructor(scene: Scene) {
     this._scene = scene;
@@ -107,10 +117,14 @@ export class Hud {
 
       this.gamePaused = true;
       this._prevTime = this.time;
+
+      this._scene.getSoundByName('gameSong').pause();
+      this._pause.play();
     });
 
     this._createPauseMenu();
     this._createControlsMenu();
+    this._loadSounds(scene);
   }
 
   updateHud(): void {
@@ -148,6 +162,8 @@ export class Hud {
     clearInterval(this._handle);
     clearInterval(this._sparkHandle);
 
+    this._sparkWarningSfx.stop();
+
     if (sparkler) {
       sparkler.start();
       this._scene.getLightByName('sparkLight').intensity = 35;
@@ -157,12 +173,14 @@ export class Hud {
       if (!this.gamePaused) {
         if (this._sparklerLife.cellId < 10) {
           this._sparklerLife.cellId++;
-        }
-        if (this._sparklerLife.cellId == 10) {
+        } else if (this._sparklerLife.cellId == 9) {
+          this._sparkWarningSfx.play();
+        } else if (this._sparklerLife.cellId == 10) {
           this.stopSpark = true;
           clearInterval(this._handle);
+          this._sparkWarningSfx.stop();
         }
-      }
+      } else this._sparkWarningSfx.pause();
     }, 2000);
 
     this._sparkHandle = setInterval(() => {
@@ -228,6 +246,17 @@ export class Hud {
 
       this.gamePaused = false;
       this._startTime = new Date().getTime();
+
+      this._scene.getSoundByName('gameSong').play();
+      this._pause.stop();
+
+      this._scene.getSoundByName('gameSong').play();
+      this._pause.stop();
+
+      if (this._sparkWarningSfx.isPaused) {
+        this._sparkWarningSfx.play();
+      }
+      this._sfx.play();
     });
 
     const controlsBtn = Button.CreateSimpleButton('controls', 'CONTROLS');
@@ -247,6 +276,8 @@ export class Hud {
     controlsBtn.onPointerDownObservable.add(() => {
       this._controls.isVisible = true;
       this._pauseMenu.isVisible = false;
+
+      this._sfx.play();
     });
 
     const quitBtn = Button.CreateSimpleButton('quit', 'QUIT');
@@ -262,7 +293,6 @@ export class Hud {
     quitBtn.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
     stackPanel.addControl(quitBtn);
 
-    //set up transition effect
     Effect.RegisterShader(
       'fade',
       'precision highp float;' +
@@ -287,10 +317,14 @@ export class Hud {
         this._scene.getCameraByName('cam')
       );
       postProcess.onApply = (effect) => {
-        console.log(effect);
         effect.setFloat('fadeLevel', this.fadeLevel);
       };
       this.transition = true;
+
+      this.quitSfx.play();
+      if (this._pause.isPlaying) {
+        this._pause.stop();
+      }
     });
   }
 
@@ -334,6 +368,46 @@ export class Hud {
     backBtn.onPointerDownObservable.add(() => {
       this._pauseMenu.isVisible = true;
       this._controls.isVisible = false;
+
+      this._sfx.play();
     });
+  }
+
+  private _loadSounds(scene: Scene): void {
+    this._pause = new Sound(
+      'pauseSong',
+      './sounds/Snowland.wav',
+      scene,
+      function () {},
+      {
+        volume: 0.2,
+      }
+    );
+
+    this._sfx = new Sound(
+      'selection',
+      './sounds/vgmenuselect.wav',
+      scene,
+      function () {}
+    );
+
+    this.quitSfx = new Sound(
+      'quit',
+      './sounds/Retro Event UI 13.wav',
+      scene,
+      function () {}
+    );
+
+    this._sparkWarningSfx = new Sound(
+      'sparkWarning',
+      './sounds/Retro Water Drop 01.wav',
+      scene,
+      function () {},
+      {
+        loop: true,
+        volume: 0.5,
+        playbackRate: 0.6,
+      }
+    );
   }
 }

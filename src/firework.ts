@@ -4,6 +4,7 @@ import {
   MeshBuilder,
   ParticleSystem,
   Scene,
+  Sound,
   Texture,
   Vector3,
   VertexBuffer,
@@ -17,6 +18,8 @@ export class Firework {
   private _scene: Scene;
   private _exploded: boolean = false;
   private _started: boolean = false;
+  private _rocketSfx: Sound;
+  private _explosionSfx: Sound;
 
   constructor(scene: Scene, i: number) {
     this._scene = scene;
@@ -56,6 +59,8 @@ export class Firework {
     rocket.addSizeGradient(0, 1);
     rocket.addSizeGradient(1, 0.01);
     this._rocket = rocket;
+
+    this._loadSounds();
   }
 
   private _explosions(position: Vector3): void {
@@ -135,6 +140,7 @@ export class Firework {
   startFirework(): void {
     if (this._started) {
       if (this._emitter.position.y >= this._height && !this._exploded) {
+        this._explosionSfx.play();
         this._exploded = true;
         this._explosions(this._emitter.position);
         this._emitter.dispose();
@@ -145,8 +151,31 @@ export class Firework {
     } else {
       if (this._delay <= 0) {
         this._started = true;
+        this._rocketSfx.play();
         this._rocket.start();
       } else this._delay--;
     }
+  }
+
+  private _loadSounds(): void {
+    this._rocketSfx = new Sound(
+      'selection',
+      './sounds/fw_05.wav',
+      this._scene,
+      function () {},
+      {
+        volume: 0.5,
+      }
+    );
+
+    this._explosionSfx = new Sound(
+      'selection',
+      './sounds/fw_03.wav',
+      this._scene,
+      function () {},
+      {
+        volume: 0.5,
+      }
+    );
   }
 }

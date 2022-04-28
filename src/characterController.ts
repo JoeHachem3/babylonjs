@@ -7,11 +7,13 @@ import {
   ExecuteCodeAction,
   Mesh,
   MeshBuilder,
+  Observable,
   ParticleSystem,
   Quaternion,
   Ray,
   Scene,
   ShadowGenerator,
+  Sound,
   SphereParticleEmitter,
   Texture,
   TransformNode,
@@ -53,6 +55,14 @@ export class Player extends TransformNode {
   private _prevAnim: AnimationGroup;
   private _isFalling: boolean = false;
   private _jumped: boolean = false;
+  public lightSfx: Sound;
+  public sparkResetSfx: Sound;
+  private _resetSfx: Sound;
+  private _walkingSfx: Sound;
+  private _jumpingSfx: Sound;
+  private _dashingSfx: Sound;
+
+  public onRun = new Observable();
 
   private static readonly PLAYER_SPEED: number = 0.45;
   private static readonly JUMP_FORCE: number = 0.8;
@@ -78,6 +88,9 @@ export class Player extends TransformNode {
   ) {
     super('player', scene);
     this.scene = scene;
+
+    this._loadSounds(this.scene);
+
     this._setupPlayerCamera();
 
     this.mesh = assets.mesh;
@@ -90,6 +103,14 @@ export class Player extends TransformNode {
     this._jump = assets.animationGroups[2];
     this._land = assets.animationGroups[3];
     this._run = assets.animationGroups[4];
+
+    this.onRun.add((play) => {
+      if (play && !this._walkingSfx.isPlaying) this._walkingSfx.play();
+      else if (!play && this._walkingSfx.isPlaying) {
+        this._walkingSfx.stop();
+        this._walkingSfx.isPlaying = false;
+      }
+    });
 
     this._createSparkles();
     this._setUpAnimations();
@@ -222,6 +243,7 @@ export class Player extends TransformNode {
       this._dashPressed = true;
 
       this._currentAnim = this._dash;
+      this._dashingSfx.play();
     }
 
     let dashFactor = 1;
@@ -301,6 +323,7 @@ export class Player extends TransformNode {
 
       this._jumped = true;
       this._isFalling = false;
+      this._jumpingSfx.play();
     } else if (!this._isGrounded()) {
       if (this._checkSlope() && this._gravity.y <= 0) {
         this._gravity.y = 0;
@@ -394,6 +417,8 @@ export class Player extends TransformNode {
         },
         () => {
           this.mesh.position.copyFrom(this._lastGroundPos);
+
+          this._resetSfx.play();
         }
       )
     );
@@ -416,12 +441,20 @@ export class Player extends TransformNode {
         this._input.inputMap['ArrowDown'] ||
         this._input.inputMap['ArrowLeft'] ||
         this._input.inputMap['ArrowRight'])
-    )
+    ) {
       this._currentAnim = this._run;
-    else if (this._jumped && !this._isFalling && !this._dashPressed)
-      this._currentAnim = this._jump;
-    else if (!this._isFalling && this._grounded) this._currentAnim = this._idle;
-    else if (this._isFalling) this._currentAnim = this._land;
+      this.onRun.notifyObservers(true);
+    } else {
+      if (this.scene.getSoundByName('walking').isPlaying) {
+        this.onRun.notifyObservers(false);
+      }
+
+      if (this._jumped && !this._isFalling && !this._dashPressed)
+        this._currentAnim = this._jump;
+      else if (!this._isFalling && this._grounded)
+        this._currentAnim = this._idle;
+      else if (this._isFalling) this._currentAnim = this._land;
+    }
 
     if (this._currentAnim != null && this._prevAnim !== this._currentAnim) {
       this._prevAnim.stop();
@@ -480,5 +513,60 @@ export class Player extends TransformNode {
     particleSystem.start();
 
     this.sparkler = particleSystem;
+  }
+
+  private _loadSounds(scene: Scene): void {
+    this.lightSfx = new Sound(
+      'light',
+      './sounds/Rise03.mp3',
+      scene,
+      function () {}
+    );
+
+    this.sparkResetSfx = new Sound(
+      'sparkReset',
+      './sounds/Rise04.mp3',
+      scene,
+      function () {}
+    );
+
+    this._jumpingSfx = new Sound(
+      'jumping',
+      './sounds/187024__lloydevans09__jump2.wav',
+      scene,
+      function () {},
+      {
+        volume: 0.25,
+      }
+    );
+
+    this._dashingSfx = new Sound(
+      'dashing',
+      './sounds/194081__potentjello__woosh-noise-1.wav',
+      scene,
+      function () {}
+    );
+
+    this._walkingSfx = new Sound(
+      'walking',
+      './sounds/Concrete 2.wav',
+      scene,
+      function () {},
+      {
+        loop: true,
+        volume: 0.2,
+        playbackRate: 0.6,
+      }
+    );
+
+    this._resetSfx = new Sound(
+      'reset',
+      './sounds/Retro Magic Protection 25.wav',
+      scene,
+      function () {},
+      {
+        volume: 0.25,
+      }
+    );
   }
 }

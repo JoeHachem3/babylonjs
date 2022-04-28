@@ -172,9 +172,13 @@ export class Environment {
               lantern.setEmissiveTexture();
               player.sparkReset = true;
               player.sparkLit = true;
+
+              player.lightSfx.play();
             } else if (lantern.isLit) {
               player.sparkReset = true;
               player.sparkLit = true;
+
+              player.sparkResetSfx.play();
             }
           }
         )
