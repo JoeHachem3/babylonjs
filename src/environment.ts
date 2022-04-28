@@ -17,7 +17,7 @@ import { Lantern } from './lantern';
 
 export class Environment {
   private _scene: Scene;
-  private _lanternObjs: Lantern[] = [];
+  public lanternObjs: Lantern[] = [];
   private _fireworkObjs: Firework[] = [];
   private _lightMtl: PBRMetallicRoughnessMaterial;
   private _startFireworks: boolean = false;
@@ -100,7 +100,7 @@ export class Environment {
           .getAbsolutePosition(),
         animGroupClone
       );
-      this._lanternObjs.push(newLantern);
+      this.lanternObjs.push(newLantern);
     }
 
     assets.lantern.dispose();
@@ -157,9 +157,9 @@ export class Environment {
   }
 
   public checkLanterns(player: Player): void {
-    if (!this._lanternObjs[0].isLit) this._lanternObjs[0].setEmissiveTexture();
+    if (!this.lanternObjs[0].isLit) this.lanternObjs[0].setEmissiveTexture();
 
-    this._lanternObjs.forEach((lantern) => {
+    this.lanternObjs.forEach((lantern) => {
       player.mesh.actionManager.registerAction(
         new ExecuteCodeAction(
           {

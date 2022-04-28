@@ -1,10 +1,4 @@
-import {
-  Effect,
-  ParticleSystem,
-  PostProcess,
-  Scene,
-  Sound,
-} from '@babylonjs/core';
+import { ParticleSystem, Scene, Sound } from '@babylonjs/core';
 import {
   TextBlock,
   AdvancedDynamicTexture,
@@ -17,6 +11,7 @@ import {
 
 export class Hud {
   private _clockTime: TextBlock = null;
+  private _lanternCnt: TextBlock;
   public time: number;
   private _startTime: number;
   private _prevTime: number = 0;
@@ -35,11 +30,11 @@ export class Hud {
   private _pauseMenu: Rectangle;
   private _controls: Rectangle;
   public fadeLevel: number;
-  public transition: boolean = false;
   private _pause: Sound;
   private _sfx: Sound;
   public quitSfx: Sound;
   private _sparkWarningSfx: Sound;
+  public quit: boolean = false;
 
   constructor(scene: Scene) {
     this._scene = scene;
@@ -53,6 +48,22 @@ export class Hud {
     stackPanel.top = '14px';
     stackPanel.verticalAlignment = 0;
     this._playerUI.addControl(stackPanel);
+
+    const lanternCnt = new TextBlock();
+    lanternCnt.name = 'lantern count';
+    lanternCnt.textVerticalAlignment = TextBlock.VERTICAL_ALIGNMENT_CENTER;
+    lanternCnt.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    lanternCnt.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+    lanternCnt.fontSize = '22px';
+    lanternCnt.color = 'white';
+    lanternCnt.text = 'Lanterns: 1 / 22';
+    lanternCnt.top = '32px';
+    lanternCnt.left = '-64px';
+    lanternCnt.width = '25%';
+    lanternCnt.fontFamily = 'Viga';
+    lanternCnt.resizeToFit = true;
+    this._playerUI.addControl(lanternCnt);
+    this._lanternCnt = lanternCnt;
 
     const clockTime = new TextBlock();
     clockTime.name = 'clock';
@@ -144,6 +155,10 @@ export class Hud {
     }
     const day = this._mString === 11 ? 'PM' : 'AM';
     return this._mString + ':' + this._sString + day;
+  }
+
+  updateLanternCount(numLanterns: number): void {
+    this._lanternCnt.text = 'Lanterns: ' + numLanterns + ' / 22';
   }
 
   startTimer(): void {
@@ -293,34 +308,8 @@ export class Hud {
     quitBtn.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
     stackPanel.addControl(quitBtn);
 
-    Effect.RegisterShader(
-      'fade',
-      'precision highp float;' +
-        'varying vec2 vUV;' +
-        'uniform sampler2D textureSampler; ' +
-        'uniform float fadeLevel; ' +
-        'void main(void){' +
-        'vec4 baseColor = texture2D(textureSampler, vUV) * fadeLevel;' +
-        'baseColor.a = 1.0;' +
-        'gl_FragColor = baseColor;' +
-        '}'
-    );
-    this.fadeLevel = 1.0;
-
     quitBtn.onPointerDownObservable.add(() => {
-      const postProcess = new PostProcess(
-        'Fade',
-        'fade',
-        ['fadeLevel'],
-        null,
-        1.0,
-        this._scene.getCameraByName('cam')
-      );
-      postProcess.onApply = (effect) => {
-        effect.setFloat('fadeLevel', this.fadeLevel);
-      };
-      this.transition = true;
-
+      this.quit = true;
       this.quitSfx.play();
       if (this._pause.isPlaying) {
         this._pause.stop();

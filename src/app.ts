@@ -4,9 +4,11 @@ import {
   ArcRotateCamera,
   Color3,
   Color4,
+  CubeTexture,
   Effect,
   Engine,
   FreeCamera,
+  GlowLayer,
   HemisphericLight,
   Matrix,
   Mesh,
@@ -514,15 +516,19 @@ class App {
   private async _goToGame() {
     this._scene.detachControl();
     const scene = this._gameScene;
-    scene.clearColor = new Color4(
-      0.01568627450980392,
-      0.01568627450980392,
-      0.20392156862745098
-    );
 
     this._ui = new Hud(scene);
 
     scene.detachControl();
+
+    const envHdri = CubeTexture.CreateFromPrefilteredData(
+      './textures/envtext.env',
+      scene
+    );
+    envHdri.name = 'env';
+    envHdri.gammaSpace = false;
+    scene.environmentTexture = envHdri;
+    scene.environmentIntensity = 0.04;
 
     this._input = new PlayerInput(scene, this._ui);
     await this._initializeGameAsync(scene);
@@ -706,13 +712,6 @@ class App {
   }
 
   private async _initializeGameAsync(scene: Scene) {
-    const light0 = new HemisphericLight(
-      'hemiLight',
-      new Vector3(0, 1, 0),
-      scene
-    );
-    light0.diffuse = new Color3(0.1, 0.1, 0.1);
-
     scene.ambientColor = new Color3(
       0.34509803921568627,
       0.5568627450980392,
@@ -741,6 +740,8 @@ class App {
       if (this._player.sparkReset) {
         this._ui.startSparklerTimer(this._player.sparkler);
         this._player.sparkReset = false;
+
+        this._ui.updateLanternCount(this._player.lanternsLit);
       } else if (this._ui.stopSpark && this._player.sparkLit) {
         this._ui.stopSparklerTimer(this._player.sparkler);
         this._player.sparkLit = false;
@@ -749,6 +750,17 @@ class App {
       if (!this._ui.gamePaused) {
         this._ui.updateHud();
       }
+
+      if (this._ui.quit) {
+        this._ui.quit = false;
+        this._goToStart();
+      }
+    });
+
+    const gl = new GlowLayer('glow', scene);
+    gl.intensity = 0.4;
+    this._environment.lanternObjs.forEach((lantern) => {
+      gl.addIncludedOnlyMesh(lantern.mesh);
     });
   }
 
