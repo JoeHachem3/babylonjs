@@ -32,17 +32,6 @@ export class Lantern {
     this._scene = scene;
     this._lightMtl = lightMtl;
 
-    this._lightSphere = MeshBuilder.CreateSphere(
-      'illum',
-      { segments: 4, diameter: 20 },
-      this._scene
-    );
-    this._lightSphere.scaling.y = 2;
-    this._lightSphere.setAbsolutePosition(position);
-    this._lightSphere.parent = mesh;
-    this._lightSphere.isVisible = false;
-    this._lightSphere.isPickable = false;
-
     this._loadLantern(mesh, position);
 
     this._loadStars();
@@ -58,6 +47,7 @@ export class Lantern {
     light.radius = 2;
     light.diffuse = new Color3(0.45, 0.56, 0.8);
     this._light = light;
+
     this._findNearestMeshes(light);
   }
 
@@ -78,14 +68,30 @@ export class Lantern {
   }
 
   private _findNearestMeshes(light: PointLight): void {
+    if (this.mesh.name.includes('14') || this.mesh.name.includes('15')) {
+      light.includedOnlyMeshes.push(
+        this._scene.getMeshByName('festivalPlatform1')
+      );
+    } else if (this.mesh.name.includes('16') || this.mesh.name.includes('17')) {
+      light.includedOnlyMeshes.push(
+        this._scene.getMeshByName('festivalPlatform2')
+      );
+    } else if (this.mesh.name.includes('18') || this.mesh.name.includes('19')) {
+      light.includedOnlyMeshes.push(
+        this._scene.getMeshByName('festivalPlatform3')
+      );
+    } else if (this.mesh.name.includes('20') || this.mesh.name.includes('21')) {
+      light.includedOnlyMeshes.push(
+        this._scene.getMeshByName('festivalPlatform4')
+      );
+    }
+
     this._scene
-      .getMeshByName('__root__')
+      .getTransformNodeByName(this.mesh.name + 'lights')
       .getChildMeshes()
       .forEach((mesh) => {
-        if (this._lightSphere.intersectsMesh(mesh))
-          light.includedOnlyMeshes.push(mesh);
+        light.includedOnlyMeshes.push(mesh);
       });
-    this._lightSphere.dispose();
   }
 
   private _loadStars(): void {

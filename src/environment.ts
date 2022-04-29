@@ -20,7 +20,6 @@ export class Environment {
   public lanternObjs: Lantern[] = [];
   private _fireworkObjs: Firework[] = [];
   private _lightMtl: PBRMetallicRoughnessMaterial;
-  private _startFireworks: boolean = false;
 
   constructor(scene: Scene) {
     this._scene = scene;
@@ -143,11 +142,6 @@ export class Environment {
       this._fireworkObjs.push(new Firework(this._scene, i));
     }
 
-    this._scene.onBeforeRenderObservable.add(() => {
-      if (this._startFireworks)
-        this._fireworkObjs.forEach((firework) => firework.startFirework());
-    });
-
     return {
       env,
       allMeshes,
@@ -184,5 +178,9 @@ export class Environment {
         )
       );
     });
+  }
+
+  public startFireworks(): void {
+    this._fireworkObjs.forEach((firework) => firework.startFirework());
   }
 }

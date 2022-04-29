@@ -7,6 +7,7 @@ import {
   Button,
   Control,
   Rectangle,
+  Grid,
 } from '@babylonjs/gui';
 
 export class Hud {
@@ -21,6 +22,7 @@ export class Hud {
   private _mString: number = 11;
   private _stopTimer: boolean = false;
   public gamePaused: boolean = false;
+  public gameFinished: boolean = false;
   public stopSpark: boolean;
   private _handle: NodeJS.Timeout;
   private _sparkHandle: NodeJS.Timeout;
@@ -35,8 +37,17 @@ export class Hud {
   public quitSfx: Sound;
   private _sparkWarningSfx: Sound;
   public quit: boolean = false;
+  public isMobile: boolean;
+  public jumpBtn: Button;
+  public dashBtn: Button;
+  public leftBtn: Button;
+  public rightBtn: Button;
+  public upBtn: Button;
+  public downBtn: Button;
 
-  constructor(scene: Scene) {
+  constructor(scene: Scene, isMobile: boolean) {
+    this.isMobile = isMobile;
+
     this._scene = scene;
 
     this._playerUI = AdvancedDynamicTexture.CreateFullscreenUI('UI');
@@ -133,6 +144,8 @@ export class Hud {
       this._pause.play();
     });
 
+    if (this.isMobile) this._createMobileControls();
+
     this._createPauseMenu();
     this._createControlsMenu();
     this._loadSounds(scene);
@@ -185,11 +198,13 @@ export class Hud {
     }
 
     this._handle = setInterval(() => {
-      if (!this.gamePaused) {
+      if (!this.gamePaused && !this.gameFinished) {
         if (this._sparklerLife.cellId < 10) {
           this._sparklerLife.cellId++;
-        } else if (this._sparklerLife.cellId == 9) {
-          this._sparkWarningSfx.play();
+
+          if (this._sparklerLife.cellId == 9) {
+            this._sparkWarningSfx.play();
+          }
         } else if (this._sparklerLife.cellId == 10) {
           this.stopSpark = true;
           clearInterval(this._handle);
@@ -199,7 +214,7 @@ export class Hud {
     }, 2000);
 
     this._sparkHandle = setInterval(() => {
-      if (!this.gamePaused) {
+      if (!this.gamePaused && !this.gameFinished) {
         if (this._sparklerLife.cellId < 10 && this._spark.cellId < 5) {
           this._spark.cellId++;
         } else if (this._sparklerLife.cellId < 10 && this._spark.cellId >= 5) {
@@ -360,6 +375,104 @@ export class Hud {
 
       this._sfx.play();
     });
+  }
+
+  private _createMobileControls(): void {
+    const actionContainer = new Rectangle();
+    actionContainer.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    actionContainer.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+    actionContainer.height = 0.4;
+    actionContainer.width = 0.2;
+    actionContainer.left = '-2%';
+    actionContainer.top = '-2%';
+    actionContainer.thickness = 0;
+    this._playerUI.addControl(actionContainer);
+
+    const actionGrid = new Grid();
+    actionGrid.addColumnDefinition(0.5);
+    actionGrid.addColumnDefinition(0.5);
+    actionGrid.addRowDefinition(0.5);
+    actionGrid.addRowDefinition(0.5);
+    actionContainer.addControl(actionGrid);
+
+    const dashBtn = Button.CreateImageOnlyButton('dash', './sprites/aBtn.png');
+    dashBtn.thickness = 0;
+    dashBtn.alpha = 0.8;
+    dashBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    this.dashBtn = dashBtn;
+
+    const jumpBtn = Button.CreateImageOnlyButton('jump', './sprites/bBtn.png');
+    jumpBtn.thickness = 0;
+    jumpBtn.alpha = 0.8;
+    jumpBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    this.jumpBtn = jumpBtn;
+
+    actionGrid.addControl(dashBtn, 0, 1);
+    actionGrid.addControl(jumpBtn, 1, 0);
+
+    const moveContainer = new Rectangle();
+    moveContainer.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+    moveContainer.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+    moveContainer.height = 0.4;
+    moveContainer.width = 0.4;
+    moveContainer.left = '2%';
+    moveContainer.top = '-2%';
+    moveContainer.thickness = 0;
+    this._playerUI.addControl(moveContainer);
+
+    //grid for placement of arrow keys
+    const grid = new Grid();
+    grid.addColumnDefinition(0.4);
+    grid.addColumnDefinition(0.4);
+    grid.addColumnDefinition(0.4);
+    grid.addRowDefinition(0.5);
+    grid.addRowDefinition(0.5);
+    moveContainer.addControl(grid);
+
+    const leftBtn = Button.CreateImageOnlyButton(
+      'left',
+      './sprites/arrowBtn.png'
+    );
+    leftBtn.thickness = 0;
+    leftBtn.rotation = -Math.PI / 2;
+    leftBtn.color = 'white';
+    leftBtn.alpha = 0.8;
+    leftBtn.width = 0.8;
+    leftBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+    this.leftBtn = leftBtn;
+
+    const rightBtn = Button.CreateImageOnlyButton(
+      'right',
+      './sprites/arrowBtn.png'
+    );
+    rightBtn.rotation = Math.PI / 2;
+    rightBtn.thickness = 0;
+    rightBtn.color = 'white';
+    rightBtn.alpha = 0.8;
+    rightBtn.width = 0.8;
+    rightBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    this.rightBtn = rightBtn;
+
+    const upBtn = Button.CreateImageOnlyButton('up', './sprites/arrowBtn.png');
+    upBtn.thickness = 0;
+    upBtn.alpha = 0.8;
+    upBtn.color = 'white';
+    this.upBtn = upBtn;
+
+    const downBtn = Button.CreateImageOnlyButton(
+      'down',
+      './sprites/arrowBtn.png'
+    );
+    downBtn.thickness = 0;
+    downBtn.rotation = Math.PI;
+    downBtn.color = 'white';
+    downBtn.alpha = 0.8;
+    this.downBtn = downBtn;
+
+    grid.addControl(leftBtn, 1, 0);
+    grid.addControl(rightBtn, 1, 2);
+    grid.addControl(upBtn, 0, 1);
+    grid.addControl(downBtn, 1, 1);
   }
 
   private _loadSounds(scene: Scene): void {
